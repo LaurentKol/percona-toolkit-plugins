@@ -10,8 +10,11 @@ Usage: `PTP_CONNECTION_NAME='xxx' pt-table-checksum --plugin multisource-replica
 #### How does it works
 `pt-table-checksum` use `SHOW SLAVE STATUS` to check slave's latency, this plugin will adapt SHOW SLAVE STATUS syntax to support MariaDB multi-source replication if required.
 
+pt-table-checksum will detect multi-source replica just as traditional ones, at least if you use
+`--recursion-method` `hosts` or `dsn=...`. Also, you can troubleshoot pt-table-checksum by running `select * from <db>.pt_checksums order by ts desc limit 5` to check that checksum queries get replicate.
+
 When checking consistency on a replica that use multi-source replication you have to be careful that checksum statements and DML statements are going through same replication stream otherwise table's data won't be in same point in time if replication is lagging, therefore checksum result will not be accurate.
-That being said, you should be fine if you use row-based replication and do not use --replicate-database option, that's because "pt-table-checksum executes USE to select the database that contains the table it’s currently working on".
+That being said, you should be fine if you use row-based replication and do not use `--replicate-database` option, that's because "pt-table-checksum executes USE to select the database that contains the table it’s currently working on".
 
 #### TODO
    * Evaluate do/ignore db/table replication rules to determine which replication connection latency has to be checked so that Replication Connection Name isn't required as argument and that when checking databases from multiple connection correct replication stream latency is monitored.
