@@ -1,9 +1,9 @@
-# pt-table-checksum-multisource-replication
+# multisource-replication
 
 This plugin allows you to use Percona's tool pt-table-checksum to check consistency for MariaDB multi-source replicated databases.
 This is done by using multi-source replication syntax to check SLAVE STATUS
 
-Usage: PTP_CONNECTION_NAME='xxx' pt-table-checksum --plugin pt-table-checksum-multisource-repl.pl ...
+Usage: PTP_CONNECTION_NAME='xxx' pt-table-checksum --plugin multisource-replication ...
 
 This plugin should work from pt-table-checksum v2.2.8 and above
 PTP_CONNECTION_NAME environment variable must be set according to which databases you are checking, so that correct replication connection latency is checked.
