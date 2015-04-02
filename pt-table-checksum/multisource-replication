@@ -1,0 +1,93 @@
+# This plugin allows you to use Percona's tool pt-table-checksum to check consistency for MariaDB multi-source replicated databases.
+#
+# This plugin should work from pt-table-checksum v2.2.8 and above
+#
+# Usage: PTP_CONNECTION_NAME='xxx' pt-table-checksum --plugin multisource-replication ...
+#
+# PTP_CONNECTION_NAME is your multi-source replication connection name, it will be use as: "SHOW SLAVE 'xxx' STATUS"
+#
+# License: GNU GPL v2
+# Author: Laurent Kolakofsky
+#
+package pt_table_checksum_plugin;
+use strict;
+
+# Can't continue without a CONNECTION_NAME
+if ( $ENV{PTP_CONNECTION_NAME} ) {
+   use constant CONNECTION_NAME => $ENV{PTP_CONNECTION_NAME};
+} else {
+   print STDERR "Environment variable PTP_CONNECTION_NAME must be set! Exiting ...\n";
+   exit 1;
+}
+
+# For debug purposes
+use constant PTPLUGINDEBUG => $ENV{PTPLUGINDEBUG} || $ENV{PTDEBUG} || 0;
+#use Data::Dumper;
+
+sub new {
+   my ( $class ,
+        $master_cxn ,
+        $explain,
+        $quiet,
+        $resume,
+        $Quoter,
+        $TableParser,
+   ) = @_;
+
+   my %slaves = ();
+   my $self = {master_cxn  => $master_cxn, slaves => %slaves };
+   bless $self, $class;
+   return $self;
+}
+
+# Have a look inside pt-table-checksum to see where this gets hooked
+sub get_slave_lag {
+   my ( $self ) = @_;
+   return sub {
+            my ($cxn) = @_;
+            my $dbh = $cxn->dbh();
+            my $show_slave_status_stmt = undef;
+            my $slave_lag = undef;
+            #print Dumper($cxn);
+
+            # Fails if slave not accesible, code adapted from pt-table-checksum
+            if ( !$dbh || !$dbh->ping() ) {
+               PTPLUGINDEBUG && pt_table_checksum->_d('Lost connection to slave', $cxn->name(),
+                  'while waiting for slave lag');
+               eval { $dbh = $cxn->connect() };  # connect or die trying
+               if ( pt_table_checksum_plugin->EVAL_ERROR ) {
+                  pt_table_checksum_plugin->oktorun = 0;  # Fatal error
+                  chomp pt_table_checksum_plugin->EVAL_ERROR;
+                  die "Lost connection to replica " . $cxn->name()
+                     . " while attempting to get its lag (" . pt_table_checksum_plugin->EVAL_ERROR . ")";
+               }
+            }
+
+            # Find out if this slave is using legacy or multi-source replication
+            if ( ! exists($self->{slaves}{$cxn->dsn->{P}} ) ){
+               if ( $dbh->do("SHOW SLAVE STATUS") == 1 ){
+                  $self->{slaves}{$cxn->dsn->{P}} = 0; # 0 = legacy replication
+                   PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h} . ':' . $cxn->dsn->{P},
+                      "is legacy / single-source replication");
+               } else {
+                  $self->{slaves}{$cxn->dsn->{P}} = 1; # 1 = multi-source replication
+                   PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h} . ':' . $cxn->dsn->{P},
+                      "is multi-source replication");
+               }
+               #print Dumper($self->{slaves});
+            }
+
+            # Use custom syntax based on replication type
+            if ( $self->{slaves}{$cxn->dsn->{P}} == 1 ) {
+                $show_slave_status_stmt = "SHOW SLAVE '" . CONNECTION_NAME . "' STATUS";
+            } else {
+                $show_slave_status_stmt = "SHOW SLAVE STATUS";
+            }
+            $slave_lag = $dbh->selectrow_hashref($show_slave_status_stmt)->{seconds_behind_master};
+            PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h} . ':' . $cxn->dsn->{P},
+               "is $slave_lag seconds behind ");
+            return $slave_lag;
+   };
+}
+1;
+
