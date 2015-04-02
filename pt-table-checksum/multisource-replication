@@ -64,27 +64,27 @@ sub get_slave_lag {
             }
 
             # Find out if this slave is using legacy or multi-source replication
-            if ( ! exists($self->{slaves}{$cxn->dsn->{P}} ) ){
+            if ( ! exists($self->{slaves}{$cxn->dsn->{h}.':'.$cxn->dsn->{P}} ) ){
                if ( $dbh->do("SHOW SLAVE STATUS") == 1 ){
-                  $self->{slaves}{$cxn->dsn->{P}} = 0; # 0 = legacy replication
-                   PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h} . ':' . $cxn->dsn->{P},
+                  $self->{slaves}{$cxn->dsn->{h}.':'.$cxn->dsn->{P}} = 0; # 0 = legacy replication
+                   PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h}.':'.$cxn->dsn->{P},
                       "is legacy / single-source replication");
                } else {
-                  $self->{slaves}{$cxn->dsn->{P}} = 1; # 1 = multi-source replication
-                   PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h} . ':' . $cxn->dsn->{P},
+                  $self->{slaves}{$cxn->dsn->{h}.':'.$cxn->dsn->{P}} = 1; # 1 = multi-source replication
+                   PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h}.':'.$cxn->dsn->{P},
                       "is multi-source replication");
                }
                #print Dumper($self->{slaves});
             }
 
             # Use custom syntax based on replication type
-            if ( $self->{slaves}{$cxn->dsn->{P}} == 1 ) {
+            if ( $self->{slaves}{$cxn->dsn->{h}.':'.$cxn->dsn->{P}} == 1 ) {
                 $show_slave_status_stmt = "SHOW SLAVE '" . CONNECTION_NAME . "' STATUS";
             } else {
                 $show_slave_status_stmt = "SHOW SLAVE STATUS";
             }
             $slave_lag = $dbh->selectrow_hashref($show_slave_status_stmt)->{seconds_behind_master};
-            PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h} . ':' . $cxn->dsn->{P},
+            PTPLUGINDEBUG && pt_table_checksum->_d("Slave", $cxn->dsn->{h}.':'.$cxn->dsn->{P},
                "is $slave_lag seconds behind ");
             return $slave_lag;
    };
