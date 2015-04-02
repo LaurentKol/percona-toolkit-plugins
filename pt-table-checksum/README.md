@@ -3,7 +3,7 @@ This plugin allows you to use Percona's tool pt-table-checksum to check consiste
 
 Usage: `PTP_CONNECTION_NAME='xxx' pt-table-checksum --plugin multisource-replication ...`
 
-#### Requirements:
+#### Requirements
    * pt-table-checksum v2.2.8 or above.
    * `PTP_CONNECTION_NAME` environment variable must be set according to which databases you are checking, so that correct replication connection latency is checked.
 
